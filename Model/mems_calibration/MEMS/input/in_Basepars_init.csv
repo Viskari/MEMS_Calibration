@@ -1,0 +1,32 @@
+InFileType,in_Basepars,#Do not change this input file type name.
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software)
+scIcept,11.0782,
+scSlope,0.26126,
+scBD,1.15,
+sorpC1,0.297,
+sorpC2,3.355,
+Nmax,3,
+Nmid,1.75,
+LCmax,0.51,
+k1,0.37,
+k2,0.009,
+k4,0.57,
+EHmin,0.005,
+EHmax,0.15,
+ESmin,0.005,
+ESmax,0.15,
+la2,0.19,
+la3,0.038,
+B1,0.6,
+B2,0.5,
+B3,0.33,
+fdoc,0.15,
+dlch,0.008761362, #Testing - the value above is far too high to be the 'normal' rate of loss. It should probably be considered a maximum that is reduced according to texture and precipitation events
+k8,0.001440416,#(((0.000099)*(1.0/100))+((0.000855)*(1.0/42))+((0.001796)*(1.0/13)))/((1.0/100)+(1.0/42)+(1.0/13))
+k9,2.19E-05,#1.0/120/365.24
+k10,0.000295696,#1.0/11.5/365.24
+tmod_ActivationE,38.9,#unit: kJ mol-1
+tmod_alpha,1.10E+07,
+DOCfrg,0.8,
+LITfrg,0.006,
+Trange,24,

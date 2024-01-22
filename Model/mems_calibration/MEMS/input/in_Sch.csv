@@ -1,0 +1,14 @@
+InFileType,in_Sch,#Do not change this input file type name.,,
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software),,
+#comments,,,,
+SchNum,YearNum,DOY,Operation,Option
+1,1,1,plantingCrop,Grass
+1,10,999,schEnd,
+2,1,1,plantingCrop,Bluestem
+2,10,999,schEnd,
+3,1,1,plantingCrop,Mix
+3,20,999,schEnd,
+4,1,1,plantingCrop,Oak
+4,50,999,schEnd,
+5,1,1,plantingCrop,Pine
+5,100,999,schEnd,

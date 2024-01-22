@@ -1,0 +1,25 @@
+InFileType,in_Control,#Do not change this input file type name.
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software)
+in_Basepars,in_Basepars.csv,
+in_Site,in_Site.csv,
+in_Soil,in_Soil.csv,
+in_Sch,in_Sch.csv,
+in_Crop,in_Crop.csv,
+in_Tree,in_Tree.csv,
+StartYear,1,
+EndYear,2018,
+DOYYearlyOutput,365,
+BlockStart,#equilibrium,
+BlockEndYear,2008,
+WeatherFile,in_Wth.csv,
+WeatheOption,F,#F ; C; Y
+SchNum,1,
+YearlyOutput,N,
+DailyOutput,N,
+BlockStart,#2009-2018LCS,
+BlockEndYear,2018,
+WeatherFile,in_Wth.csv,
+WeatheOption,F,#F ; C; Y
+SchNum,1,
+YearlyOutput,Y,
+DailyOutput,N,

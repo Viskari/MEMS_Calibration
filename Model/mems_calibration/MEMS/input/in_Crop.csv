@@ -1,0 +1,9 @@
+InFileType,in_Crop,#Do not change this input file type name.,,
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software),,
+Definition,(Concentration in %) Initial internal N content of whole input material,#0-1) Fraction of inputs allocated to soluble litter carbon (C1),0-1) Fraction of inputs allocated to microbially inaccessible litter carbon (C3),(0-1) Fraction of inputs that bypass microbial processing
+CropName,LitN,fsi,fligi,fdoc
+Grass,1.1,0.35,0.15,0.15
+Bluestem,0.48,0.27,0.13,0.15
+Mix,0.87,0.375,0.295,0.15
+Oak,1.32,0.4,0.27,0.15
+Pine,0.41,0.35,0.32,0.15

@@ -1,0 +1,11 @@
+MEMS model is running. Version num: 1.01
+Total soil layer number is 1
+Done writing /mnt/eos_rw/projects/SOIL-NACA/MEMS/Calibration/Model/mems_calibration/MEMS/input/dailySOM.csv
+Done writing /mnt/eos_rw/projects/SOIL-NACA/MEMS/Calibration/Model/mems_calibration/MEMS/input/dailySurfOM.csv
+Done writing /mnt/eos_rw/projects/SOIL-NACA/MEMS/Calibration/Model/mems_calibration/MEMS/input/yearlySOM.csv
+Done writing /mnt/eos_rw/projects/SOIL-NACA/MEMS/Calibration/Model/mems_calibration/MEMS/input/yearlySurfOM.csv
+Time used in reading inputs: 0.059387741 seconds
+Time used in calculations: 0.458889663 seconds
+Time used in writting output files: 0.029548549 seconds
+Total ime used for execution: 0.547825953 seconds
+Simulation executed successfully. Simulation of 295847 days done.

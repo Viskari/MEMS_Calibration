@@ -1,0 +1,5 @@
+InFileType,in_Tree,#Do not change this input file type name.,,
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software),,
+Definition,(Concentration in %) Initial internal N content of whole input material,#0-1) Fraction of inputs allocated to soluble litter carbon (C1),0-1) Fraction of inputs allocated to microbially inaccessible litter carbon (C3),(0-1) Fraction of inputs that bypass microbial processing
+CropName,LitN,fsi,fligi,fdoc
+Tree4501,1.1,0.35,0.15,0.15

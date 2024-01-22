@@ -1,0 +1,14 @@
+InFileType,in_Site,X.Do.not.change.this.input.file.type.name.
+VersionNum,1.01,#Do not change this version number. There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software)
+lat,47.80693,
+long,14.92761,
+c_soluble_surf,30.92803,
+n_soluble_surf,0.673065,
+c_hydrol_surf,30.92803,
+n_hydrol_surf,1,
+c_unhydrol_surf,35.34632,
+n_unhydrol_surf,1,
+c_microbe_surf,0,
+n_microbe_surf,1,
+c_dom_surf,66.27435,
+n_dom_surf,0,

@@ -1,0 +1,6 @@
+InFileType,in_Soil,X.Do.not.change.this.input.file.type.name.,X.There.should.be.NO.comma.wthin.any.string..no.comma.in.any.cell.if.you.open.this.file.with.a.spreadsheet.software.,X,X.1,X.2,X.3,X.4,X.5,X.6,X.7,X.8,X.9,X.10,X.11,X.12,X.13,X.14,X.15,X.16,X.17,X.18,X.19,X.20,X.21,X.22,X.23,X.24
+VersionNum,1.01,#Do not change this version number. ,,,,,,,,,,,,,,,,,,,,,,,,,,
+#Soil layer index (starting from 1),#Minimum depth of soil layer,#Maximum depth of soil layer,#bulk density of soil layer,#Percent of sand in soil layer,#Percent of clay in soil layer (0.0 - 1.0),#Percent of rock in soil layer (0.0 - 1.0),#Field capacity of soil layer,#Wilting point of soil layer,#Saturated hydraulic conductivity,#Soil pH,,,# carbon in soluble SOM,# nitrogen in soluble SOM,,,,,,,,,,,,,,
+,#cm,#cm,#g/cm3,#%,#%,#%,#cm/cm,#cm/cm,#mm/hour,,# Celcius,#mm/mm,,,,,,,,,,,,,,,,
+soilLyrIndx,soilDepthMin,soilDepthMax,bd,sand,clay,rock,fc,wp,ks,pH,soil_t,swc,c_soluble,n_soluble,c_hydrol,n_hydrol,c_unhydrol,n_unhydrol,c_microbe,n_microbe,c_pom_heavy,n_pom_heavy,c_dom,n_dom,c_maom,n_maom,c_pom_light,n_pom_light
+1,0,20,1.21778777182932,2,31,15,0.444838491125527,0.223982011865102,0.0676601069455574,5.2,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1

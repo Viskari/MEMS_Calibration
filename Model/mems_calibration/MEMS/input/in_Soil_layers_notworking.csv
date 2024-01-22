@@ -1,0 +1,13 @@
+InFileType,in_Soil,#Do not change this input file type name.,#There should be NO comma wthin any string (no comma in any cell if you open this file with a spreadsheet software),,,,,,,,,,,,,,,,,,,,,,,,,
+VersionNum,1.01,#Do not change this version number. ,,,,,,,,,,,,,,,,,,,,,,,,,,
+#Soil layer index (starting from 1),#Minimum depth of soil layer,#Maximum depth of soil layer,#bulk density of soil layer,#Percent of sand in soil layer,#Percent of clay in soil layer (0.0 - 1.0),#Percent of rock in soil layer (0.0 - 1.0),#Field capacity of soil layer,#Wilting point of soil layer,#Saturated hydraulic conductivity,#Soil pH,,,# carbon in soluble SOM,# nitrogen in soluble SOM,,,,,,,,,,,,,,
+,#cm,#cm,#g/cm3,#%,#%,#%,#cm/cm,#cm/cm,#mm/hour,,# Celcius,#mm/mm,,,,,,,,,,,,,,,,
+soilLyrIndx,soilDepthMin,soilDepthMax,bd,sand,clay,rock,fc,wp,ks,pH,soil_t,swc,c_soluble,n_soluble,c_hydrol,n_hydrol,c_unhydrol,n_unhydrol,c_microbe,n_microbe,c_pom_heavy,n_pom_heavy,c_dom,n_dom,c_maom,n_maom,c_pom_light,n_pom_light
+1,0,5,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+2,5,10,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+3,10,15,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+4,15,20,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+5,20,25,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+6,25,30,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+7,30,100,1.468948955,46,14,11.5064424,0.35,0.2,20,6.27,5,0.2,30.92803,0.673065,30.92803,1,35.34632,1,1,1,68.28393,1,0,1,2099.000568,1,614.5554,1
+
