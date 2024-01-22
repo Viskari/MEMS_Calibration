@@ -1,0 +1,739 @@
+---
+title: "The YASSO15 Calibration Bible"
+subtitle: "Technical documentation for the YASSO calibration project"
+author: "Janne Pusa"
+date: "22nd September 2020"
+output: 
+  html_document:
+    toc : true
+    toc_depth: 2
+    theme: flatly
+    toc_float: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Changing the toc position (make this into separate block)
+# ```{css toc-content, echo = FALSE}
+# #TOC {
+#   left: 100px;
+#   margin: 20px 0px 25px 0px;
+# }
+# 
+# .main-container {
+#     margin-left: 200px;
+# }
+# ```
+```
+
+
+# Overview
+
+### Introduction
+
+A mathematical model has to be calibrated before it can be used to make accurate predictions. Calibrating a model essentially means training it to function under certain conditions. More precisely, calibration finds the optimal values and uncertainties for the free parameters of a model using some data. Calibration always requires three things: a model to calibrate, data to describe the target conditions and an algorithm that performs the calibration.
+
+The success of a calibration is largely reliant on providing the calibration algorithm with clean and diverse data. Furthermore, the data should be well-representative of the conditions, where the calibrated model is intended to be used.
+
+For example, imagine we calibrate the soil carbon model YASSO with a comprehensive set of Swedish data. The calibration yields a parameter set that implicitly contains information of the climate and environment in Sweden. Then, we can run YASSO with this calibrated parameter set to make reasonable predictions in most regions of Sweden. Since Finland has largely similar climate and geography to Sweden, the parameter set might also work decently in Finland. However, if we tried to use the parameter set to predict soil carbon in South Africa, the results would likely be nonsense. To successfully run YASSO in South Africa, we would first need to train the model to function under those conditions by calibrating it with local data.
+
+### The calibration tools
+
+The purpose of this documentation is to explain how to calibrate the YASSO15 model using the codes developed in 2020. The three main tools (code repositories) created in the calibration project are:
+
+1. **Database reader** - prepares data for the calibration
+2. **YASSO15 R-package** - implements the YASSO15 model
+3. **Calibration logic** - performs the calibration
+
+The documentation presents each of these tools in a separate section. Every section starts with a short introduction followed by compact instructions for installing and using the tool. This is followed by developer notes that explain various design choices in detail. Each section ends with a todo list suggesting the next development steps for the tool.
+
+This documentation does not attempt to provide any theoretical knowledge related to Bayesian statistics,  model calibration methods or R-programming. However, at the end of the documentation, there is a list of learning resources that should be helpful for understanding the theoretical aspects.
+
+
+# Quick start
+
+> "I just want to start calibrating stuff, I hear it's extremely hilarious!"
+
+You have come to the right section. Here is a step-by-step guide to getting started with YASSO calibration:
+
+1. Clone (contributors and developers) or download (users) the calibration logic repository from [GitHub](https://github.com/YASSOmodel/YASSO-calibration). If you cannot access the repository, ask the YASSOmodel organization for access privileges. If you cannot clone the repository, ensure that your git credentials are set up locally.
+
+2. Install required packages in R:
+  + `BayesianTools` (CRAN) for using calibration (MCMC) methods.
+  + `parallel` (CRAN) for parallelizing the calibration.
+  + `tidyverse` & `GGally` (CRAN) for plotting the calibration results.
+  + `Ryassofortran` (GitHub, see [below](#installation-1)) for the YASSO15 model.
+
+3. Open the project file `YASSO-calibration/Calibration.Rproj` in RStudio and then open the example wrapper `YASSO-calibration/R/example/wrapper_example.R`. If you are not using RStudio and cannot open the project file, you have to correct `path_main` in the example wrapper.
+
+4. Source the example wrapper file. You should see an output with running numbers indicating that the calibration is running. Once the calibration is done, you should see a message saying that the calibration is working as intended. If you do, you have installed the main functionality correctly.
+
+Congratulations, you are now ready to start calibrating YASSO! You can run calibrations with the production wrapper (`YASSO-calibration/R/production/wrapper_01.R`) by tweaking the settings under “User-defined settings”. However, if you are using the calibration codes for the first time, now would be a good time to read through the [Calibration logic](#calibration-logic) section of this documentation.
+
+# Database reader
+
+
+## Introduction
+
+The purpose of the database reader is to:
+
+* Provide a modern, efficient and extendable logic for reading the YASSO database.
+* Provide functionality for shaping the data and splitting it into training and testing data.
+* Save the shaped data in a clean CSV-format ready for calibration.
+
+A word concerning notation in this document: *Database* is a generic term that means the collection of all existing measurements that are available for YASSO calibration. *Dataset* is a subset of the database. For example, CIDET and GSS would be datasets, subsets of the entire YASSO database.
+
+In the database reader, each dataset has a designated reader script `read_<dataset>.R`. The reader script imports the relevant part of the database, applies dataset-specific filtering and shaping steps to the data and saves the full dataset along with a training and testing dataset. By default, the training data contains roughly 80 % and the testing data 20 % of the full dataset.
+
+Each reader saves the three versions of the shaped dataset under `results/<dataset>/` in a CSV-format. The folders under `results/` can be directly copied to the calibration logic data folder. Then, the data can be used during calibrations.
+
+The reader scripts are based on the `tidyverse` packages. This allows the scripts to make complicated vectorized operations in the easy-to-follow tidyverse syntax. Furthermore, the tidyverse approach makes it straightforward to add new data (e.g. nitrogen) to the calibration.
+
+## Installation and usage
+
+### Installation
+
+1. Clone (contributors and developers) or download (users) the repository from [GitHub](https://github.com/YASSOmodel/YASSO-db_reader).
+
+2. Install required packages in R: 
+
+* `tidyverse` (CRAN) for shaping, sampling and saving data.
+* `readxl` (CRAN) for reading Excel (YASSO database) files.
+
+3. Unzip the database files you have received through private communication to `data/`. For now, these files are not public but can be obtained from the YASSO development team.
+
+### Folder structure
+
+| Folder | Content |
+| ------ | ------- |
+| `data` | raw database files |
+| `R` | reader code for each dataset |
+| `results` | saved calibration-ready data for each dataset |
+
+### How to use
+
+When first starting out, open the project file `Database-reader.Rproj` in Rstudio. If you are not using Rstudio, you will need to correct the paths in the reader scripts
+
+Choose the dataset, whose data you want to prepare for calibration. Open and source the reader script `R/read_<dataset>.R`. It reads, shapes and saves the data under `results/<dataset>/`. Copy the `results/<dataset>/` folder to the calibration logic to use the data in calibration.
+
+Generally, the reader scripts are not used very often. Once the data for a dataset has been copied to the calibration logic, there is usually no need to come back to the database reader code. A revision is only necessary, when changes are made to the way the dataset is used, for example due to a new YASSO version.
+
+
+## Notes
+
+**Adding a new dataset.** Below are generic step-by-step instructions for preparing a new dataset. The specifics will always depend on the dataset, but the instructions should give an idea of the recommended workflow.
+
+1. Create a new folder `results/<dataset>/` for saving the results and create a new script `R/read_<dataset>.R`. You can use the existing readers as a basis for the script. Just remember that you cannot blindly copy-paste - while the structure of all readers is similar, every dataset has its specifics. This is also the reason there is a separate script for each dataset instead of a common function that shapes them all.
+
+2. Modify the new script to load and shape the dataset. You have to write a new loading function to `R/gen_funcs.R` if you are using data from a new source. Make sure you prepare all the required driver data for YASSO. You might have to manually create some non-measured data, such as woody sizes or litter inputs (both usually all zeros for litter bags). When you shape and save the new data, use the same format and column names as in the existing readers - the calibration logic reads the data by column name.
+
+3. Decide how to split the data into training and testing. The split could be done for example by measurement periods (CIDET) or by singular observations (GSS). The standard split is 80 % to training and 20 % to testing, but this is not set in stone. Check the existing readers for ideas for splitting the data.
+
+4. Once you have the three versions of the dataset ready and saved to `results/<dataset>/`, compare the full dataset to your raw data and ensure everything is correct. For example, join-commands can sometimes unexpectedly change the order of your data. It should be easy to check the validity of the saved data at this point with the code fresh in your mind.
+
+5. Copy your data in `results/<dataset>/` to the calibration logic data folder in `YASSO-calibration/data/<dataset>/`. You have to manually copy the data, so that when you are changing the content of your calibration data, you are always doing it consciously. This should reduce the amount of crazy calibration results caused by using accidentally overwritten data. However, if you dislike this, the data can be automatically saved to the calibration logic by modifying the path in the reader.
+
+6. See the [calibration developer notes](#notes-2) for instructions on how to add the dataset to the calibration logic.
+
+**Adding new data for existing datasets.** In some cases you want to add new data, for example nitrogen, to existing readers. To do this, you may simply modify the reader to load the new data to a new variable such as "df_nitro" and column bind it to "df_all" alongside the other variables. This way the new data will be automatically sampled to training and testing sets.
+
+**The carbon observations have arbitrary units.** At the time of writing, the carbon observations (and uncertainties) of most datasets are dimensionless fractions with values between 0 and 1000. For example, at ED2 the observed values for the AWEN pools sum up to 1000 at each time step - the values are merely fractions that represent how the carbon is divided to the pools. The only dataset with physical units is GSS, whose observations are in [kgC/m^2^]. 
+
+The lack of meaningful units should not negatively affect the calibration, as long as all the carbon inputs to YASSO have the same units as the observations. The units of the inputs determine the units of the simulated carbon, and during calibration the simulated carbon is compared to observations. The calibration works as long as this comparison is valid.
+
+**Uncertainties of the carbon measurements.** The historically used uncertainties were under heated discussion during the development. At the time of writing, all the datasets have an arbitrary uncertainty value that is the same for every carbon observation. For example, every CIDET observation has a constant uncertainty of 100 and every LIDET observation 200. The fixed uncertainties have no strong scientific basis and they should be used with skepticism.
+
+**Humus in the litter measurements.** The observed carbon in the litter measurements does not contain humus - the observations correspond to the AWEN pools of YASSO. The lack of humus is taken into account during calibrations by not allowing simulated carbon to flow into the H-pool.
+
+**A short introduction to each dataset**. Below, there are a few central remarks concerning each calibration-ready dataset. The introductions are not meant to be comprehensive - detailed information can be obtained from Jari Liski and Toni Viskari.
+
+
+**CIDET**
+
+* Litter bag measurements from Canada.
+* Clean and organized dataset.
+* There is a single observed carbon value for each measurement. During calibration, the observations are compared to simulated carbon summed over AWEN pools.
+* Every (litter bag) measurement period in the dataset has exactly 6 measurements. This constant length is used to identify the periods. The data are randomly sampled into a training and testing set based on the periods.
+
+**LIDET**
+
+* Litter bag measurements from North America.
+* Rather raw and unorganized dataset. Requires heavy preprocessing: 
+  + There are multiple measurements for each TIMEOUT (time stamp) value. The measurements need to be grouped by and averaged over the TIMEOUTs to obtain measurements similar to CIDET. In CIDET data, similar work has already been done by default.
+  + Grouping the TIMEOUTs is tricky, since subsequent TIMEOUTs might have differences anywhere between 0.01 and 0.04, but still belong to the same group.
+  + The column MESHTOP1 varies throughout the dataset and some values which have the same TIMEOUT have different MESHTOP1 values. These cases are treated as separate groups.
+* The uncertainties are calculated dynamically in an attempt to make them more realistic. However, the dynamic uncertainties are not yet used in calibration. They are created based on the measurement period durations as follows:
+  1. For each (averaged) observation, calculate `rel_sd = sd_c / mean_c`
+  2. Calculate `rel_unc = mean(rel_sd)` within TIMEOUT windows: 0-0.5, 0.5-1.5, 1.5-2.5 etc. Drop the *NA* values before this calculation. Now each window has a relative uncertainty.
+  3. Connect the rel_unc values to the observations based on the TIMEOUT windows. Now each observation has a (non-unique) relative uncertainty `rel_unc`.
+* Measurement periods can be identified from the data after the TIMEOUTs have been grouped. Each period has a varying length and there is no set TIMEOUT value at which the periods begin. Most periods have either a length (amount of measurements) of 1 or 10. The data is split into a training and testing set by randomly sampling the measurement periods.
+
+**EURODECO1**
+
+* Litter bag measurements from Sweden.
+* Clean and organized dataset.
+* The carbon is measured for AWEN pools (marked AWER in database). The observations do not have a physical unit but are fractions that add up to 1000 on each row.
+* The start of each measurement period is marked clearly with `TIMEOUT = 0`. This is used to identify the periods. The data are randomly sampled into a training and testing set based on the periods.
+
+**EURODECO2**
+
+* Litter bag measurements from Sweden.
+* The dataset is not as clean as EURODECO1 (ED1), even though the format is similar. ED2 has some measurement periods that lack an initial value and are thus redundant. For example, the period starting at `OBS = 290` has no initial value and needs to be removed.
+* Most of the ED2 data cannot be used in the calibration, since the measurements have different treatments. This causes variance in the observed carbon in otherwise similar (from the perspective of YASSO) conditions. There is no parameter in YASSO15 to describe the treatment differences and so, using the entire dataset to calibrate YASSO15 typically yields poor non-converging results. Therefore, only the control group measurements are used in the calibration.
+* Similarly to ED1, the measurement periods are identified and split into training and testing data by `TIMEOUT = 0`.
+* ED1 and ED2 are originally not separate datasets, but they both belong to the EURODECO dataset. The split to ED1 and ED2 was done by Jari Liski.
+
+**GSS**
+
+* Collection of global carbon steady state measurements.
+* Clean and organized dataset, but shaping it and calibrating with it is unintuitive.
+* In the measurements, the observed carbon units are in [kgC/m^2^] while the litter input units are in [gC/m^2^].
+* Some observed carbon values are extremely high and need to be filtered out. By default values higher than 80 kgC/m^2^ are filtered out.
+* Each carbon observation consists of litter of three sizes: non-woody, small and large litter. Furthermore, there are three sets of litter input values, each corresponding to a size. When the data are used during calibration, YASSO15 is run over all three sizes and the simulated results are summed to reproduce the carbon observations
+* There are no measurement periods in GSS, only individual measurements. Therefore, the data is simply split into training and testing sets by randomly sampling the measurements.
+
+
+**Mäkinen**
+
+* Woody litter (no litter bags) measurements from Finland. The size, decomposition state and the age of wood have been measured.
+* Clean and organized dataset, straightforward to shape.
+* Litter size varies for each measurement.
+* There are no measurement periods so the training and testing sets are sampled from all observations.
+
+**Tarasov**
+
+* Woody litter (no litter bags) measurements from Russia.
+* Clean and organized dataset, shaped and sampled similarly to Mäkinen.
+* The dataset has many measurements with identical YASSO driver data (climate, initials et cetera) but different observed carbon values. Only 45 measurements out of 101 have unique YASSO drivers. The number of duplicate drivers with distinct observations seems to confuse calibration - individual calibration with this dataset does not converge. Thus, Tarasov is left out of calibration until further notice. 
+
+**Hob3**
+
+* Litter bag measurements from the United States.
+* Clean and organized dataset, straightforward to shape.
+* Measurement periods are identified by their length (6). The sampling to testing and training is done by period.
+
+
+## Todo
+
+**Test the dynamic LIDET uncertainties.** The dynamic LIDET uncertainties should be properly tested in calibration. If they work, creating dynamic uncertainties for the other datasets could be considered, since the currently used fixed uncertainties are not optimal.
+
+**Revise older scripts.** All the scripts are functional, but the older scripts (ED1/2, CIDET) might do certain operations (weather data) in overly complicated ways. While not necessary, it could be a good learning exercise to go through the older scripts step by step and revise any non-optimal methods.
+
+
+# YASSO15 R-package
+
+## Introduction
+
+The purpose of the YASSO15 R-package (Ryassofortran) is to:
+
+* Provide a way to run the Fortran-version of the YASSO15 model with simple R-commands.
+* Document how to use the YASSO15 model with in-built examples and sample data.
+* Simplify distributing the YASSO15 model.
+
+Ryassofortran was created since a high-speed version of YASSO15 was needed for calibration. The calibration logic was to be written R and while there was an existing R-version of YASSO15, the R-version was two orders of magnitude slower than the Fortran90-version. Thus, an R-package that wraps the Fortran90-version was developed. Ryassofortran makes it simple to utilize and distribute compiled Fortran90-code while providing inbuilt documentation for the model.
+
+Ryassofortran provides two R-functions: `run_yasso()` and `calibrate_yasso()`. These functions call the respective Fortran90-wrappers `runyasso` and `calyasso`, which in turn call the Fortran90-subroutine `mod5c` containing the YASSO15 model code. In other words, the package makes it possible to use simple R-functions to run a very computationally efficient implementation of YASSO15. While both R-functions essentially call the same model code, there are a few distinctive differences in how they work.
+
+The `run_yasso()` function is designed for generic use, such as making predictions with YASSO15. The user provides YASSO15 with driver data and initial carbon in a vector. The model "rolls" the carbon forward one time step at a time using the simulated carbon of the current time step as the initial carbon of the next step.
+
+The `calibrate_yasso()` function is designed specifically for calibration purposes. In the calibration data, there is a measured initial state corresponding to an observed carbon value at each time step. Consequently, the initial carbon is passed to the function as a matrix and the model uses a pre-determined initial state at each time step. Furthermore, the leaching input is a single value instead of a vector, since every calibration dataset has a characteristic leaching.
+
+**It is important to explicitly define the data types for the R-function inputs.** The Fortran90-wrappers expect certain data types (double or integer) for certain variables and the code will crash or silently fail if the types are not cast correctly in R.
+
+## Installation and usage
+
+### Installation
+
+**Requirements**
+
+The installation has the following requirements:
+
+* R-version 3.5.0 or higher.
+* On Windows systems, Rtools needs to be installed.
+
+
+**User installation**
+
+Install the package from [GitHub](https://github.com/YASSOmodel/Ryassofortran) with the R-command:
+
+```{r eval=FALSE}
+devtools::install_github("YASSOmodel/Ryassofortran")
+```
+
+
+**Developer installation**
+
+Developers who want to modify or add new features to the package should install it as follows:
+
+1. Clone the [GitHub](https://github.com/YASSOmodel/Ryassofortran) repository to your system with the git-command:
+
+    ```{bash eval=FALSE}
+    git clone https://github.com/YASSOmodel/Ryassofortran.git
+    ```
+
+2. On your system, open the project file `Ryassofortran/Ryassofortran.Rproj` in Rstudio.
+
+3. Navigate to the "Build" menu and "Clean and Rebuild" the package. Ryassofortran is now installed and you can start tweaking the package using standard package development methods (see [Learning resources](#r-programming)).
+
+
+### Folder structure
+
+| Folder | Content |
+| ------ | ------- |
+| `data` | sample data and parameters |
+| `data-raw` | code for generating sample data and parameters |
+| `man` | help files generated by Roxygen |
+| `R` | R-functions and documentation |
+| `src` | raw and compiled Fortran90-code |
+| `tests` | unit tests for the R-functions |
+
+### How to use
+
+Shape and typecast the driver data into the correct format. Call YASSO with the R-function that corresponds to your use case. Examine the simulated results.
+
+When first starting out, it is recommended to take a look at the inbuilt package documentation:
+
+1. Load the package in R with `library(Ryassofortran)`.
+
+2. Open the documentation for the R-functions with `?run_yasso` and `?calibrate_yasso`.
+
+3. Open the documentation for sample datasets with `?sample_data_run` and `?sample_data_cal`.
+
+4. Run the examples in the R-functions' documentation using the sample datasets. Note, that the datasets have distinct shapes and each function only works with the corresponding dataset.
+
+As mentioned above, the types of the function inputs need to be defined explicitly in R. The type of each input should be cast with the `as.<type>` commands as presented in the R-function documentation. For example, the inputs `n_runs`, `time` and `litter` are typecast with `as.integer`, `as.double` and `as.matrix`, respectively. See the scripts that create the sample data in `Ryassofortran/data-raw/` for a demonstration.
+
+## Notes
+
+**Making changes to YASSO source code.** In Ryassofortran, the YASSO source code is located in `Ryassofortran/src/yassofortran.f90`. You can use the workflow below as a structure to develop the model and add new features. Note that the steps are very generic and bare-bones, since the exact process always depends on the new functionality. Furthermore, the steps assume that you have a basic understanding of R-package development obtained from [here](https://www.youtube.com/watch?v=79s3z0gIuFU&list=PLk3B5c8iCV-T4LM0mwEyWIunIunLyEjqM) or elsewhere.
+
+It is highly recommended to create a new git branch or fork for developing a new model version. Furthermore, the development work should be done in Rstudio, which provides convenient tools for building and testing the model.
+
+1. Add the new functionality to the subroutine "mod5c" in the source code `src/yassofortran.f90`. If the new functionality affects the model inputs or outputs, you need to modify the wrapper subroutines "runyasso" and "calyasso".
+
+2. Modify the R-functions `R/run_yasso.R` and `R/calibrate_yasso.R` to correctly call the new Fortran90 wrapper subroutines.
+
+3. Modify the sample data creating scripts `data-raw/create_sample_data_run.R` and `data-raw/create_sample_data_cal.R` to create data supporting the new functionality. Furthermore, if the new model expects new parameters, also modify `data-raw/create_sample_parameters.R`. Run the scripts to create the new data and parameters.
+
+4. "Clean and rebuild" the package and attempt to run the new R-functions with the new sample data and parameters. This step might require several tries and revision of the previous steps, since bugs often sneak in during development.
+
+5. Once the functionality is working, update the unit tests under `tests/testthat/`. The command `dput()` can be helpful for correcting the expected outputs.
+
+6. Update the documentation and examples in the files in `R/` to reflect the new functionality. Update the README with new examples.
+
+7. "Test" (run the unit tests) and "Check" the package. Make sure there are no errors or warnings. Once everything works as expected, start running your new model locally or publish it on GitHub.
+
+**The R-version requirement is R > 3.5.0**. The version requirement cutoff is mostly arbitrary and set to save development time - possible bug fixes only have to be done in more recent R-versions. However, there is also a new data serialization format starting at 3.5.0, which is not backwards compatible with earlier R-versions. If the requirement were lowered, this could potentially cause future issues with the sample data.
+
+**YASSO developers should keep Ryassofortran up to date.** The package should be kept updated and future development could possibly even revolve around it. An R-package is a simple way to share compiled models with collaborators. The development of the YASSO R-version could possibly be stopped, since Ryassofortran already provides the same functionality while being significantly faster and having in-built wrappers and documentation.
+
+**Compiling Fortran90 codes for R**. While developing the Fortran90 model, you can generally just make changes to `src/yassofortran.f90` and recompile the codes with the Rstudio command "Clean and rebuild". However, the first time you add an uncompiled file to `src/`, you will have to compile it manually. The recommended way to do this is using the terminal command `R CMD SHLIB <filename>.f90` (you can use the Rstudio terminal). The command will make sure the compiled file is compatible with R and the operating system. Afterwards, you can use the standard "Clean and rebuild" approach.
+
+**Unit tests.** Ryassofortran includes basic unit tests. The tests run the R-functions with the sample data and compare the simulated results to known-good results with a reasonable tolerance. While this works well most of the time, sometimes the unit tests break while checking the package, see the [GitHub issue](https://github.com/YASSOmodel/Ryassofortran/issues/1). This is usually fixed by running the check again.
+
+**Monthly temperature version is the default.** At the time of writing, the monthly temperature version of YASSO15 is the model version featured in the master branch. However, an earlier version with the annual temperature approximation logic can be found under the git tag "v0.3.0".
+
+## Todo
+
+**Add continuous integration.** Continuous integration (CI) was used during the development, but it was linked to the GitHub account "jpusa". When leaving FMI, the author removed this link. Future developers should use the the existing .yml files to set up CI on Appveyor (Windows) and Travis (Mac and Linux). Alternatively, GitHub Actions could be tried as a CI platform. The CI checks should be kept on throughout the development.
+
+**Improve the documentation.** While basic documentation exists, it is important to keep developing the documentation according to new features and users' questions. For example, new examples could be added and larger sample datasets could be created.
+
+**Publish the package on CRAN.** This is a long-term goal, but it would make it very easy to distribute YASSO. However, it would also require resources: getting the package accepted to CRAN would require additional development and after it were published, it would still need continuous attention. If this ever happens, the package name should be changed to something simpler like "YassoModel".
+
+**Investigate the "register native routines" note in CRAN checks**. Ryassofortran passes the CRAN check without errors or warnings (`devtools::check(args = c('--as-cran'))`), but on Windows systems the check returns a note:
+
+```{bash eval=FALSE}
+File 'Ryassofortran/libs/i386/Ryassofortran.dll':
+  Found no calls to: 'R_registerRoutines', 'R_useDynamicSymbols
+File 'Ryassofortran/libs/x64/Ryassofortran.dll':
+    Found no calls to: 'R_registerRoutines', 'R_useDynamicSymbols'
+It is good practice to register native routines and to disable symbol
+  search.
+```
+  
+Since the package functionality is working as expected and the note refers to [rather advanced material](https://cran.r-project.org/doc/manuals/R-exts.html) related to compiling DLLs on Windows, the cause of the note has not yet been investigated in detail. However, the note could be looked into to ensure it will not cause any issues in the future.
+
+# Calibration logic
+
+
+## Introduction
+
+The purpose of the calibration logic is to:
+
+* Provide a modern and reliable way to calibrate the YASSO15 model in R
+* Provide functionality for plotting and summarizing the calibration results
+
+The calibration logic uses the data shaped by the *database reader* to calibrate the model provided in the *YASSO15 R-package*. The calibration is built on the Markov Chain Monte Carlo (MCMC) methods provided in the [BayesianTools](https://cran.r-project.org/web/packages/BayesianTools/vignettes/BayesianTools.html) package developed by Florian Hartig, Francesco Minunno and Stefan Paul (2019).
+
+The main calibration logic is in the "wrapper" file, which sets up and starts the calibration and summarizes the results. There are two distinct wrappers: an example wrapper and a production wrapper. The example wrapper in `R/example/wrapper_example.R` is used for debugging and for showing new users a simplified example of the calibration process. The production wrapper in `R/production/wrapper_01.R` is used for the actual calibrations and contains more advanced functionality such as running multiple chains in parallel and plotting the calibration results.
+
+The "likelihood" file is the heart of the calibration. It basically dictates how the YASSO model and the data are used during a calibration. There are two likelihoods, one for each wrapper. The example likelihood in `R/example/likelihood_example.R` contains global variables for debugging, while the production likelihood in `R/production/likelihood.R` has no globals. Otherwise, the likelihood files are similar.
+
+**The calibration basically works as follows:**
+
+First, the settings of the calibration are chosen in the wrapper file. Then, the wrapper is sourced and the calibration begins. 
+
+On each iteration of the calibration, the BayesianTools logic generates a trial set of the calibrated parameters - each parameter is given a "random" value. This trial parameter set is sent to the likelihood function, which runs YASSO with the set and compares the simulated results to observed data. The result of this comparison is a logarithmic value, which describes how well the trial parameter set performed. This log-likelihood value is returned to BayesianTools logic, which decides whether the trial set should be accepted or rejected.
+
+Once all the iterations are complete and the calibration is done, the wrapper file calculates statistics and draws plots based on the accepted parameter sets. The wrapper saves the raw results to `results/out/` and the stats and plots to `results/<run-name>/`.
+
+
+## Installation and usage
+
+### Installation
+
+1. Clone (contributors and developers) or download (users) the repository from [GitHub](https://github.com/YASSOmodel/YASSO-calibration).
+
+2. Install required packages in R:
+  + `BayesianTools` (CRAN) for using calibration (MCMC) methods
+  + `parallel` (CRAN) for parallelizing the calibration
+  + `Ryassofortran` (GitHub, see [above](#installation-1)) for YASSO15 model
+
+3. Install optional, but recommended packages in R:
+  + `tidyverse` (CRAN) for plotting results
+  + `GGally` (CRAN) for correlation plots
+
+### Folder structure
+
+| Folder | Content |
+| ------ | ------- |
+| `data` | drivers and observations for each site, produced by database reader |
+| `docs` | documentation, i.e. this manual |
+| `parameters` | prior limits and starting values for the parameters |
+| `R` | calibration codes |
+| `results` | calibration results: raw outputs, statistics and plots |
+
+### How to use
+
+When first starting out, open the project file `Calibration.Rproj` in Rstudio. If you are not using Rstudio, you will need to correct the paths in the wrapper files.
+
+Then, read through the example wrapper in `R/example/wrapper_example.R` and run it line by line. Try to understand what the code does with the help of [BayesianTools documentation](https://cran.r-project.org/web/packages/BayesianTools/vignettes/BayesianTools.html). Run the calibration and ensure that the likelihood passes the check at the end of the file. Furthermore, familiarize yourself with the example likelihood in `R/example/likelihood_example.R`. You can debug the likelihood, and see how it works line by line, by setting a break point to the likelihood call in the wrapper (before the calibration starts).
+
+Once you have a basic understanding of the example, start reading the production wrapper in `R/production/wrapper_01.R`. The general structure is similar to the example wrapper, even if there are more features. You can source the production wrapper with the default settings and investigate the outputs.
+
+To run an actual calibration, you typically simply modify the settings in the "User-defined settings" section of the production wrapper and source the wrapper. It is recommended to read the in-depth example below, since it explains the settings and covers how to run a production calibration.
+
+
+#### An example use case
+
+> "I want to run four calibrations: 1) global calibration 2) ED1+ED2 calibration 3) CIDET calibration 4) LIDET calibration. They all have different datasets and calibrated parameters and they should run in parallel."
+
+1. Open the `YASSO-calibration/` project directory on a server. The scripts also work locally, but it is more efficient to run the calibration on a server with abundant CPU cores and memory.
+
+2. Check the default values and parameter prior ranges in `parameters/defaults_and_priors.csv`. The file defines the default values ("value"), which are used as stand-in for the non-calibrated parameters during calibrations. Furthermore, it defines a prior range (between "low" and "high" ) for each parameter where the calibration looks for values.
+
+    The ranges should be defined such that the parameters cannot receive physically impossible values during the calibration (for example a ratio like *pNA* cannot be > 1). Generally, if the ranges are narrower, there are less competing parameter combinations and the calibration converges quicker.
+
+3. Check the starting values for the calibration in `parameters/starting_values.csv`. The file defines the values at which the calibration starts looking for parameter sets. The file has three values for each parameter, since the "DEzs" and "DREAMzs" samplers have three subchains, all of which need to be supplied starting values. Choosing sensible starting values significantly affects the calibration speed.
+
+    The starting values of the parameters are randomly sampled within the parameter prior ranges. Once sampled, the same starts can be used until the ranges are modified. Whenever the prior ranges are modified, you should check that the starting values are still reasonably distributed within the ranges and resample them if they are not. The Bayesian setup function `b_setup$prior$sampler(3)` is helpful for the sampling - just remember to respect the likelihood release constraint and sanity check for p-parameters (see [notes](#notes-2)).
+
+4. Start by setting up the global calibration. Open `R/production/wrapper_01.R` and navigate to the section "User-defined settings" at the start of the file. Check and modify the following settings:
+
+  * Change the seed so you do not overwrite any previous results. For example, if the latest results are in a folder `run-144` under `results/`, you probably want to set the seed to "145L" for the following run. Then, the calibration results will automatically be summarized to `results/run-145/`. The seed is tied to the run name for reproducability.
+  * Check that the path to the project directory is set correctly. It should end with `.../YASSO-calibration/`.
+  * Choose the correct datasets. At the time of writing, a global calibration would have:
+    ```{r eval=FALSE}
+    datasets <- c("ed1", "ed2", "cidet", "lidet", "gss", "makinen")
+    ```
+  
+  * Choose the parameters to be calibrated. At the time of writing, a global calibration would have: 
+    ```{r eval=FALSE}
+    par_chosen <- c(1:5, 9, 15, 17:18, 21:35)
+    ```
+  The numbers here refer to the rows in the `defaults_and_priors` file - for example "1:5" correspond to "*aA*, *aW*, *aE*, *aN*, *pWA*". Some of the parameters (e.g. *pEA*, *pNA*) are not directly calibrated, but their values are changed during calibration in the likelihood function. Calibrating them freely would yield largely similar results, but the indirect approach constrains the system - ask Toni Viskari for details.
+  * Choose the sampler. It is recommended to use "DEzs"`, since it has proven to be the most consistent and reliable out of the three choices (AM, DEzs, DREAMzs).
+  * Set the number of iterations used in the calibration. The number affects how many times the likelihood function (and thus the model) is called during the calibration, which dictates how long the calibration takes and how reliable the results are. A typical value for a global calibration would be between one and two million, which would take from three to seven hours to finish.
+  * Set the number of chains used in the calibration. The number defines how many calibrations are run in parallel using the CPU cores of the server. One chain employs one core, so you should not run more chains than you have available cores. However, it is a good practice to run at least 3 chains, since this allows you to evaluate convergence and to see if the calibration finds roughly the same results every time (it should).
+  * Set the burn-in, i.e. how many iterations (starting from first) are left out when creating the statistics and figures from the calibration results. The burn-in value does not affect the calibration in any way - all the iterations are still run and all the raw results are saved. The burn-in is defined, because it is often not useful to analyze all the calibration results but only the converging part. Setting the burn-in value to 90 % of the iterations generally works, but the stats and figures can always be recreated from the calibration results with a different burn-in.
+  * Define if you want to calibrate using full datasets or training datasets. The training data for each dataset are sampled to contain 80 % (by default) of the full dataset. Typically, you would choose to use the training datasets and then validate the results with test datasets (by default remaining 20 % of full data). At the time of writing, the global calibration is validated with:
+    ```{r eval=FALSE}
+    testsets <- c("ed1", "ed2", "cidet", "lidet")
+    ```
+  * Define if the calibration chains are run in parallel or sequentially. Parallelization is and should be the default choice, since it offers a significant speed increase over sequential runs and it works even on low-end systems like laptops. The sequential option is only intended for the rare platforms that do not support parallelization.
+  * Define if you want to automatically calculate statistics and draw figures of the calibration results and save them to `results/run-145/` (in this example case). Usually you want the stats and plots, since it is practical to have the results summarized and visualized, so you leave all three settings on "TRUE".
+
+5. It is time to set up the other three calibrations. Open `R/production/copy_wrappers.sh`. This shell script creates copies of `wrapper_01.R`, which is practical when setting up multiple calibrations. Read the script and ensure that it will create three copies named `wrapper_02.R`, `wrapper_03.R` and `wrapper_04.R`. Ensure the path points to the folder with the script. Then, give the script execute permission (if needed) in a Linux terminal with: `chmod 700 copy_wrappers.sh`. Finally, run the script with: `./copy_wrappers.sh` and it will create the three new wrappers.
+
+6. Modify the user-defined settings in the three new wrappers as you did before. You only have to do the following modifications to each file:
+
+  * Change the seed, so that each wrapper has a unique seed and the calibration results do not overwrite one another. You might give the seeds "146L", "147L" and "148L" to the three wrappers.
+  * Change the chosen datasets. Since you want to do a separate calibration with ED1+ED2, CIDET and LIDET, choose the datasets for each wrapper accordingly.
+  * Change the calibrated parameters. While the calibration would work without any changes here, you can make it faster by leaving out redundant parameters. For example, if you calibrate using the CIDET dataset, it does not make sense to include the leaching parameters for ED and LIDET in the calibration. Furthermore, calibrating parameters related to wood size is futile for the litter bag datasets. The extra parameters would just slow down the process and their results would not be meaningful. At the time of writing, you would choose:
+  
+    ```{r eval=FALSE}
+    # ED1/2
+    par_chosen <- c(1:5, 9, 15, 17, 22:32)
+    ```
+    
+    ```{r eval=FALSE}
+    # CIDET
+    par_chosen <- c(1:5, 9, 15, 18, 22:32)
+    ```
+    
+    ```{r eval=FALSE}
+    # LIDET
+    par_chosen <- c(1:5, 9, 15, 21:32)
+    ```
+
+7. The setup is now done and it is time to start the calibrations. Open `R/production/run_wrappers.sh`. This shell script runs the wrappers on the server in the background continuing even if you close ssh connection to the server. Any R console outputs will be saved to a log file under `log/`, which will help with debugging if the calibration fails. Read the script and make sure it does as explained here. Furthermore, ensure the path to the log folder is correct. 
+
+    There are two ways to use the script: First, you can run all four wrappers in parallel. This is the fastest approach, but also consumes the most CPU and memory. Second, you can take a mixed approach, where you first run two wrappers in parallel and the other two will start as soon as their predecessors finish. This can take twice as long as the first approach, but might be necessary if the available resources are limited. Choose one approach and comment the other depending on your server and how many iterations and chains you gave the wrappers. This might require trial and error.
+    
+    Similarly to the previous shell script, give `run_wrappers.sh` execute permission and run it. The calibrations are now starting. You can check that everything is going well by using Linux commands such as `top` to see that processes are starting for each chain of each calibration. If you for example chose the two-and-two approach and used three chains in each wrapper, you should see 2 * 3 = 6 new processes running. Furthermore, you can check the log-file time stamps to see that the processes are writing to them. Alternatively, you could first run the wrappers with a low amount of iterations (e.g. 5000 each) and check that the results appear to the respective folders before running with the full iterations. In any case, you should now be sure your four calibrations are running.
+
+8. After some hours, your calibrations will be ready. You can inspect the log files under `log/` in case something went wrong (however there are some known warning messages that are not harmful, see [notes](#notes-2)). Otherwise, you should find the results in the new folders under `results/`, for example the global calibration results would be in `results/run-145/`. Open this folder and inspect the following files:
+  * Check the trace plot `chain_trace_run-145.png`. This will immediately tell you if the calibration succeeded. In a successful calibration, all the chains are mixing and converging - that is overlapping and forming a horizontal "hairy worm" of many colors.
+  * Check the density plots (`chain_density` and `total_density`) for an idea of the final parameter values and uncertainties for each parameter.
+  * Check the text files `summary` and `MAP_lhoods`. The first file contains standard statistics such as the G-R convergence diagnostics and MAP for each parameter. The second file lists the likelihood values produced by the MAPs of each chain. The other text files, `defaults_and_priors` and `session_info`, are saved for reproducibility and can typically be ignored.
+  * Take a look at the subdirectory for each chain, for example `results/run-145/ch2/`. While the plots and summary in the main directory are for a combination of all the chains, the subdirectories contain plots and stats for each chain separately. The most useful file in a subdirectory is typically the correlation plot, which shows how the parameter values change relative to each other.
+  * The `validation/` directory contains the results of the `validate_results()` function, which validates the calibrated model with the test datasets. At the time of writing, the function only produces the root-mean-square error of the trained model for each test dataset. However, more functionality could be added in the future.
+  
+9. Once you have checked the results, you might sometimes want to modify the plots or statistics, for example by creating them with a different burn-in to see more of the chains. This is possible in the wrapper code, albeit it is still a little clunky at the time of writing.
+
+    For example to change the burn-in: First, navigate to the "User-defined settings" at top of the wrapper file. The wrapper should be the same one that was used for the calibration whose results you want to plot again. In the settings, change the burn-in to, say, 10 % of the iterations. Then, run the wrapper file down to the likelihood check, i.e. do not run the code section that performs the calibration. Next, navigate down to the section that loads old results. Uncomment and run the line
+
+    ```{r eval=FALSE}
+    out <- readRDS(file = paste0(path_results_out, "/out_", run_name, ".rds"))
+    ```
+
+    Now you are in a similar situation as if you had just run the calibration - you have all the settings and the results in the R-environment. You can generate the statistics and plots again by running the code sections just below the loading section.
+  
+10. Write notes regarding the calibrations to `results/run_specs.txt`. This text file contains your personal notes for each calibration and it is included in Git commits. You can write about, for example: Why did you run the calibration? Were the results expected? Are there any visible trends in the results? What should you try in following calibrations? Feel free to use the existing notes as an example. You should also write a note whenever you make changes to the parameter prior limits or starting values. This file is very helpful in the long run, when looking back at old results.
+  
+11. After going through your results and comparing them to previous results, decide if you are satisfied with the calibrations or if you want to run them again with different settings. The starting values and prior limits, in particular, can affect the convergence speed and results significantly, so do not be afraid to tweak them and try different combinations. And remember to be particularly skeptical if everything seems to work perfectly.
+  
+
+## Notes
+
+**Known commonly occuring warning messages.** There are a couple of known warning messages that tend to come up in the console/logs during calibrations and postprocessing. So far, they have all been found harmless. See the warnings below.
+
+```{bash eval=FALSE}
+Warning!!! Matrix is singular to working precision!
+```
+
+* The warning is produced during calibration. It originates in the *YASSO15 R-package*, in the "pgauss" subroutine of the YASSO source code `Ryassofortran/src/yassofortran.f90`.
+* The cause is unknown, but the warning seems connected to the GSS dataset in global calibrations. The warning is not present in, for example, ED1+ED2 calibrations.
+* Possibly related to certain combinations of the trial parameter sets generated by BayesianTools and the GSS data producing infinite steady state carbon. However, this requires further investigation.
+* Appears in calibrations on a Linux (Pecan) server, but does not appear in local Windows calibrations. However, the calibration results for production wrappers are identical on both platforms.
+* Does not seem to affect the calibrations negatively. In long calibrations, the warning typically comes up towards the start of the calibration, flooding the logs in the first ~300 k iterations.
+
+
+```{bash eval=FALSE}
+Due to internal chains, numSamples was rounded to the next number divisble by the number of chains.
+```
+*FIXED for default case* - set default number of samples to 10,002. Keeping the explanation here for historical reasons and for custom sample sizes.
+
+* The warning is produced during postprocessing the calibration results. It originates from the `getSample()` call in the plotting function in `R/production/plot_results.R`.
+* Related to sampling from the calibration results: In BayesianTools, the DEzs and DREAMzs samplers have three hard-coded subchains. In the plotting code, the default number of samples taken is 10,000. When the results are sampled with `getSample()`, the function has to respect the three subchains so that the same number of samples is taken from each subchain. Since 10,000 is not divisible by 3, the sampling rounds up to the next eligible number and produces a warning. This does not negatively affect the postprocessing, there will just be a few "extra" samples in the plots.
+
+```{bash eval=FALSE}
+In sampleEquallySpaced(temp, nSamplesPerChain) :
+  numSamples is greater than the total number of samples! All samples were selected.
+```
+
+* The warning originates from the `getSample()` call in the plotting function in `R/production/plot_results.R`.
+* Caused by attempting to plot a calibration, whose number of iterations (minus burn-in) is lower than the default number of samples (10,002) for plotting. The sampler will take as many samples as there are iterations and return a warning. Consequently, the produced plots for DEzs and DREAMzs calibrations look weird due to how sampling subchains works.
+* Generally a non-issue, since calibrations with less than 10 k iterations are rarely useful in the first place. However, to fix it you can either use more iterations, use a smaller burn-in or specify a custom number of plotting samples in the function call in the wrapper, i.e. `plot_results(..., n_samples = X)`, where X is equal to or lower than the number of iterations minus the burn-in.
+
+**Crashes during calibration.** Crashes are very uncommon - at the time of writing there have been four or five crashes in the past five months of continuous testing. The crashes are usually related to memory or CPU issues caused by a high number of chains and/or iterations. The crashing error messages that have come up so far are listed below.
+
+```{r eval=FALSE}
+  Error in serialize(data, node$con) : ignoring SIGPIPE signal
+  Calls: <Anonymous> ... doTryCatch -> sendData -> sendData.SOCKnode -> serialize
+  Execution halted
+  ```
+
+* The error is produced during parallelized calibration with a production wrapper. The error typically comes up, when all the parallel chains are ready and about to be combined.
+* The exact cause is unknown, but the error seems related to the process executing the slowest chain suddenly dying. This could be caused by the system running out of memory or CPU required for combining the chains. See also on [Stackoverflow](https://stackoverflow.com/questions/28503208/doparallel-error-in-r-error-in-serializedata-nodecon-error-writing-to-con).
+
+```{r eval=FALSE}
+Error in checkForRemoteErrors(val) : 
+  one node produced an error: cannot allocate vector of size 228.9 Mb
+Calls: parLapply ... clusterApply -> staticClusterApply -> checkForRemoteErrors
+Execution halted
+```
+* The error is produced during parallelized calibration with a production wrapper.
+* Caused by the system running out of memory due to too many chains and/or iterations.
+
+**Crash protection.** Crashes are rarely daunting, since they are very infrequent and a standard calibration should not take longer than seven hours. However, they can be annoying. Hence, the production wrappers have a basic form of crash protection: as soon as each individual chain is finished, it is saved to `results/out/tmp/`. Even if the slowest chain crashes right before combining the chains (a typical timing), the finished chains can be loaded from the folder and manually combined and saved. 
+
+The loading and combining can be done using the code section that loads old results (near the end of the wrapper) and the saving with the section right after the calibration. The wrapper should automatically remove the files at `results/out/tmp/` once a saved run is found at `results/out/`, but in some cases the user might have to remove them manually.
+
+**Reproducability of the results.** The user should always write notes to `results/run_specs.txt` and create a git commit for the wrapper right after a run is ready (e.g. "run #145 ready") to save the settings. However, many measures have also been automatized to make reproducability easier: The seed of each run is tied to the run name, e.g. run #145 has seed "145". The raw results are automatically saved to `results/out/`. The summary file in `results/<run-name>/` contains most of the calibration settings such as the sampler, the iterations and the calibrated parameters. In the same folder, the defaults and prior ranges used in the run are saved along with complete session information. The starting values of each chain are saved in the subfolders for the chains.
+
+**Making changes to likelihood, i.e. changing how the model or the data are used.** Any changes to likelihood should first be implemented to `likelihood_example.R` and tested with the `wrapper_example.R`. The likelihood function is easy to debug by stepping into the likelihood call in the wrapper. Once the functionality works as expected in the example codes, the changes can be copied to and tested in the production codes. Note, that the changes might also need to be reflected in the validation function in `R/production/validate_results.R`, since the function runs YASSO similarly to likelihood.
+
+**The leaching parameters.** Leaching is defined for the litter bag measurements and it, in principle, describes how much litter falls out of the holes in the bags over time. Each litter bag dataset has its own leaching parameter, which are historically *w1* = ED1/2, *w2* = CIDET, *w3* = Hob3, *w5* = LIDET. Investigate the likelihood function and the YASSO model code to see how leaching is handled in practice.
+
+The implementation of leaching in YASSO often leads to confusion, since while it is calibrated as a parameter, it is passed into YASSO both in the parameter vector (among the other parameters) and as a driver. The model never uses the leaching parameter from the vector - it only uses the driver. Indeed, a classic mistake while running YASSO is forgetting to pass the leaching as a driver. Furthermore, leaching adds some conceptual challenges to e.g. validating a calibration using litter bag datasets that were not included in the calibration. All in all, leaching should probably be overhauled in future model development.
+
+**Conditions for *p*-parameters in likelihood.** The *p*-parameters describe the fractions of carbon that flow between the AWENH pools. For example, *pEA* describes the fraction that flows from pool E to pool A. There are three conditions in the likelihood, that are written specifically to manage the *p*-parameters.
+
+The first condition is the release constraint. YASSO is typically not allowed to release carbon out of the system ("into the atmosphere") from all of the pools. At the time of writing, only the W-pool is used to release carbon. The *p*-parameters of the non-releasing pools are summed up to one, so that no carbon leaves the system from them. However, this decision is not set in stone and different formulations can be tested.
+
+The second condition is the sanity check. The *p*-parameters cannot sum up to over one for a single pool, since this would mean that over 100 % of the carbon in the pool is moving. Thus, there cannot be a situation where, for example, `pAW + pAE + pAN + pH > 1`. The first condition may sometimes be formulated in a way that makes this second condition redundant, but in general the sanity check is a reliable way to ensure the system does not overflow.
+
+The third condition is the humus flow correction. In the litter measurements, there is no humus. Hence, the carbon simulated during the calibration should not flow to the H-pool. Consequently, the *pH* parameter is set to zero and the release constraint is corrected accordingly. Depending on how the corrections are formulated, the parameters might need to be sanity checked again. At the time of writing, the humus flow corrected parameters are used for every dataset except GSS.
+
+**Variables are called from global environment during calibration**. While this is somewhat sloppy programming, it is how BayesianTools is designed (see the BT examples) and the only way the likelihood can access observed data during calibration. Furthermore, the risks related to calling incorrect variables are diminished in the parallelized production calibration, since all the used variables are explicitly passed to the cluster.
+
+**The article scripts and results under `R/article_scripts/`.** These scripts are used to produce plots and calculate statistics for the article that is, at the time of writing, being prepared from the calibration results. The scripts are not part of the base functionality of the calibration and thus, they are not optimized. The scripts are included in the repository, since some of them depend on the calibration data and functions.
+
+**Adding a new model type to calibration.** The model is defined in the `call_yasso()` function in the likelihood. The function can be modified to call any model, as long as the driver data are shaped to the right format and the outputs are used correctly.
+
+**Adding a new dataset to calibration.** Follow the steps in the [database reader developer notes](#notes) to shape your data. Once you have the new dataset saved to `YASSO-calibration/data/<dataset>/`, you can start following the steps below. As in the database reader, these are generic guidelines - the details depend on how you want to use the data.
+
+1. Create a new git branch for the dataset by, for example, typing in a git terminal:
+
+    ```{bash eval=FALSE}
+    git checkout -b "add_<dataset>"
+    ```
+
+    The new branch allows you to tweak the calibration logic without worrying that your changes will break the existing logic. That is, you and others can keep using the existing logic in the master branch to do calibrations while you are adding the dataset to the new branch.
+
+2. Add the new dataset to the importing function at `R/data_import.R`. How you plan to use the data defines how you want to import it. For example, CIDET, ED1 and GSS are all imported slightly differently.
+
+3. Add the name you chose for your dataset to the `datasets` vector in the example wrapper `R/example/wrapper_example.R`. Then, import the data and make sure the contents and the format are correct. You can, for example, compare the imported data to the raw database or the reader code.
+
+4. Tweak the example likelihood so that it works with the new dataset. You can create a new if-clause for the dataset or add it under an existing one. If the dataset requires a calibrated leaching, remember to define the leaching driver.
+
+5. Debug the likelihood in the example wrapper by setting a breakpoint at the designated call. Check that the data flows through the likelihood as intended. Check that the returned likelihood value makes sense considering the quality and size of your dataset.
+
+6. Run a short calibration (for example 10 k iterations) with the new dataset in the example wrapper and see if the calibration works. If you added a new leaching parameter for the dataset, you might get an error if you have not specified starting values for it. Investigate and solve any errors and warnings at this point.
+
+7. Once the short calibration is working, add the default likelihood value that your new dataset produces to the `ds_lhoods` variable in the likelihood sanity check at the end of the example wrapper. Run the sanity check and make sure all the datasets pass it.
+
+8. Add the dataset to the production wrapper and likelihood similarly as with the example: add the dataset name to `datasets`, make sure the import works, add the dataset to the likelihood, make sure the likelihood works.
+
+9. Run a production calibration with the dataset. You should do an individual calibration with the dataset and possibly another with a combination of datasets including the new one. Investigate the results. If you have a hard time getting a calibration to work with the dataset, you might want to investigate the dataset further in the database reader.
+
+10. Once the dataset is working in the production wrapper, merge the git branch you created back to the master branch. The details of the merge depend on how the master branch has been modified during your work in the new branch, but often the merge is straightforward. Once the merge is done, delete the new branch locally and on GitHub (if you pushed it).
+
+11. Make sure to write documentation for the added dataset to the [database reader developer notes](#notes).
+
+
+## Todo
+
+**Investigate the "matrix is singular to working precision" warning.** The source of the warning was discovered on the author's last work day: the "pgauss" subroutine in the *YASSO15 R-package* Fortran90 model code `Ryassofortran/src/yassofortran.f90`. The cause of the warning should be investigated in detail, now that the source has been found, even if the warning does not seem to impact results negatively.
+
+**Add functionality to `R/production/validate_results.R`.** At the time of writing, the `validate_results()` function lacks some identity since it only calculates dataset-specific RMSEs with the calibrated parameters. The function can be used for anything that takes advantage of running YASSO with the calibrated parameters and the test data.
+
+**Develop a logic that automatically recognizes when the chains start converging.** This logic would be used to automatically stop the calibration after it starts converging so the user does not have to guess how many iterations and burn-in samples they should choose. A rough example of how this might work: 
+
+The calibration would run three million iterations by default. The logic would calculate the Gelman-Rubin (G-R) diagnostics over the chains every 200 k iterations and check if the multivariate G-R is smaller than a threshold value (e.g. G-R < 1.2). Once the threshold is reached, the calibration would stop after the next ~50 k iterations to ensure there is enough data from the converging period. The burn-in would be defined until the iteration where the convergence threshold is reached.
+
+**Optimize the calibration further.** The steps taken to make the calibration fast have so far been focused on big improvements such as building a package for the Fortran90 version of YASSO and running the calibration on multiple cores. However, there are still some optimization tasks to be done:
+
+* A low level task would be optimizing likelihood, since it is called continuously during the calibration. This would involve going through likelihood step by step and trying various solutions for its structure. The efficiency of the different solutions could be compared using a package such as [microbenchmark](https://cran.r-project.org/web/packages/microbenchmark/index.html).
+
+* A high level task would be making use of the three hard-coded subchains of DEzs and DREAMzs to run the calibration over more cores. If the subchains could be distributed to CPU cores, the calibrations could potentially finish in 1/3 of the current time. However, this would likely involve fiddling with the BayesianTools source code.
+
+**Overhaul the *p*-conditions in likelihood.** The three conditions are currently somewhat overlapping with one another. Once more testing has been done and the best practices for the  *p*-conditions have been decided, the conditions should be overhauled to remove any overlap.
+
+**Refresh the default parameter values in default_and_priors.** At the time of writing, they are still largely based on the ancient values from the YASSO15 manuscript. In many cases, the defaults are not important and they are just written over. However, they could potentially cause confusion in some situations.
+
+**Examine Adaptive Metropolis seeding.** The Adaptive Metropolis algorithm does not seem to respect `set.seed()` across operating systems. This means that calibrating with AM on different platforms yields different results. For example, if you run the example wrapper on a local Windows and on a Linux server and compare the summarized results, they might not match. This can either be looked into or AM can be removed from the example (tweak to use DEzs) and production wrappers, since it is clearly a weaker algorithm than DEzs or DREAMzs.
+
+<!-- A special mention should be made on the seed in the example wrapper. While `set.seed()` generally allows random functions to behave similarly across operating systems, this does not seem to be the case for the BayesianTools Adaptive Metropolis sampler: running a short example calibration produces different results on local Windows and on a remote Linux (Pecan) server. However, using the "DEzs" and "DREAMzs" samplers in the production wrapper produces similar results on all platforms. -->
+
+**Monitor the git repository size.** At the time of writing, the size of the calibration logic repository is around 30 MB when cloned from GitHub. If the size becomes an issue, a tool such as the [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) can be used to remove any redundant files from the git history. Furthermore, the text-based result files (e.g. "summary", "MAP_lhoods") should be possibly be added to .gitignore.
+
+
+# Learning resources
+
+In this section, there is a list of learning materials regarding Bayesian statistics and R-programming. They were helpful for the author during the calibration project and should be helpful for anyone not yet fully familiar with the concepts.
+
+## Bayesian statistics and modelling
+
+**Statistical Rethinking by Richard McElreath**
+
+Full course: https://github.com/rmcelreath/statrethinking_winter2019  
+Course book: https://xcelab.net/rm/statistical-rethinking/
+
+McElreath has a very intuitive approach to teaching Bayesian statistics. There are also online lectures and lecture slides. The course was really helpful when starting out.
+
+**Theoretical ecology blog by Florian Hartig**
+
+For example:  
+https://theoreticalecology.wordpress.com/2010/09/17/metropolis-hastings-mcmc-in-r/  
+https://theoreticalecology.wordpress.com/2011/12/09/mcmc-chain-analysis-and-convergence-diagnostics-with-coda-in-r/
+
+The BayesianTools developer Florian Hartig has numerous blog posts, where he explains Bayesian modelling and MCMC algorithms step by step. The posts are great way to learn about the components of Bayesian model calibration and about postprocessing the calibration results.
+
+
+**BayesianTools package source code**
+
+https://github.com/florianhartig/BayesianTools  
+
+Sometimes the only way to understand how a certain feature works is reading it in the source code. Luckily, the BayesianTools source code is mostly well-commented and readable. I recommend pulling/downloading the repository and using the search function of a text editor to find what you need.
+
+**BayesianTools vignette**
+
+https://cran.r-project.org/web/packages/BayesianTools/vignettes/BayesianTools.html
+
+The BayesianTools vignette explains the basic functionality of the package.
+
+**Introduction to Bayesian data analysis**
+
+https://www.youtube.com/watch?v=3OJEae7Qb_o  
+
+A three-part video series teaching the basics of Bayesian statistics. Everything is explained in an intuitive way, great for starting out.
+
+**Original papers for the MCMC algorithms**
+
+*AM*  
+Haario, Heikki & Saksman, Eero & Tamminen, Johanna. (2001). An Adaptive Metropolis Algorithm. Bernoulli. 7. 10.2307/3318737.  
+
+*DRAM*  
+Haario, Heikki & Laine, Marko & Mira, Antonietta & Saksman, Eero. (2006). Dram: efficient adaptive MCMC. Statistics and Computing. 16. 339-354. 10.1007/s11222-006-9438-0.  
+
+*DE*  
+ter Braak, Cajo. (2006). A Markov Chain Monte Carlo version of the genetic algorithm Differential Evolution: Easy Bayesian computing for real parameter spaces. Statistics and Computing. 16. 239-249. 10.1007/s11222-006-8769-1.  
+
+*DEzs*  
+ter Braak, Cajo & Vrugt, Jasper. (2008). Differential Evolution Markov Chain with snooker updater and fewer chains. Statistics and Computing. 18. 435-446. 10.1007/s11222-008-9104-9.    
+
+*DREAM*  
+Vrugt, Jasper & ter Braak, Cajo & C.J.F, & ter, & Diks, Cees & Robinson, Bruce & Hyman, James & Higdon, D.. (2008). Accelerating Markov Chain Monte Carlo Simulation by Differential Evolution with Self-Adaptive Randomized Subspce Sampling. International Journal of Nonlinear Sciences and Numerical Simulation 10 (2009) 3. 10. 10.1515/IJNSNS.2009.10.3.273.  
+
+*(MT-)DREAMzs*  
+Laloy, Eric & Vrugt, Jasper. (2012). High-dimensional posterior exploration of hydrologic model using multiple-try DREAM(ZS) and high-performance computing. Water Resources Research. 50. 10.1029/2011WR010608.  
+
+Once you have a basic understanding of Bayesian statistics, the papers are surprisingly understandable and helpful for learning the various MCMC algorithms. It is a good idea to read them in the above order, since the complexity increases roughly in this order.
+
+**MCMC demo**
+
+https://chi-feng.github.io/mcmc-demo/
+
+Interactive demonstrations of how various MCMC algorithms work. Great for building intuition together with the literary sources.
+
+## R-programming
+
+**Version control with Git**
+
+https://www.youtube.com/watch?v=HVsySz-h9r4&list=PL-osiE80TeTuRUfjRe54Eea17-YfnOOAx  
+https://docs.github.com/en/github  
+
+Git is not limited to R-programming but it should be the first thing you learn if you plan to program any larger project in any language. Version control will help a lot in reproducing old results and fixing bugs. It is a very good idea to learn how to work with Git and Github, from the listed sources or any others.
+
+**Rstudio Cloud primers**
+
+https://rstudio.cloud/learn/primers
+
+Interactive tutorials for learning the basics of R. Focuses mostly on the `tidyverse` packages, which are superior to base-R for most data analysis tasks.
+
+**R for data science**
+
+https://r4ds.had.co.nz/index.html
+
+Online book for learning data science in R with code examples. Content is somewhat similar to the Rstudio Cloud primers, but the book goes deeper into the subjects. Focuses on the `tidyverse` packages.
+
+**R package development**
+
+https://www.youtube.com/watch?v=79s3z0gIuFU&list=PLk3B5c8iCV-T4LM0mwEyWIunIunLyEjqM
+
+This YouTube series by John Muschelli is a really good introduction to building packages in R. You should probably watch the videos if you plan to maintain or develop Ryassofortran or any other package.

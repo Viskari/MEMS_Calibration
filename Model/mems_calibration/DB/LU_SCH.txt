@@ -1,0 +1,9 @@
+LU	SCH	PLT	NPPin
+C10	4	broadl	0.68
+C20	5	conif	0.78
+C30	3	mix	0.77
+E10	1	wood_enc_grass	0.67
+E20	1	pure_grass	0.51
+E30	1	spor_grass	0.59
+CR	1	crop	0.43
+

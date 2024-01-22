@@ -1,0 +1,80 @@
+
+--Back from holidays. Change limits for aN, g, gN, pH, aH, th1, th2. Change starting values for aN, w1, w2, w5, g, gN, pH, aH, th1, th2.
+
+Runs #145-146: Global run with new limits and starts, DEzs and DREAMzs
+SPECS: iter=1500k, chains=3
+-DEzs converges around 900k
+-DREAMzs does not totally converge
+-DEzs results are slightly shifted for most parameters compared to #143. Most notably, aN and bN1 are totally different (aN is forced lower by new limit).
+
+--Change logic for humus - now litter bags have zero humus generation (pH = 0)
+
+Run #147: Global run with new humus logic, new limits and starts.
+SPECS: DEzs, iter=1500k, chains=3
+-Results converge
+-Compared to #145:
+--pWN slighly shifted
+--likelihood is slightly worse overall
+--rmse is slightly better overall
+
+Run #148: CIDET run with new humus logic, new limits and starts.
+SPECS: DEzs, iter=1500k, chains=3
+-Results converge
+-Compared to #124 (different limits):
+--The results are very similar, even with totally different limits
+--Overall likelihoods are similar too
+
+Run #149: LIDET run with new humus logic, new limits and starts.
+SPECS: DEzs, iter=1500k, chains=3
+-bN2 and gN do not converge, everything else does
+-Compared to #127 (different limits):
+--There are similar convergence issues for bN2 and gN. Data related?
+--Generally, the results are very similar
+
+Run #150: ED run with new humus logic, new limits and starts.
+SPECS: DEzs, iter=1500k, chains=3
+-Surprisingly, results very nearly converge (g-r = 1.23). aA, aW, aE have most trouble.
+-Compared to #130 (different limits):
+--Results now converge, clear improvement in that sense
+--Otherwise difficult to compare since #130 is all over the place
+	
+Run #151: Repeat #147 with DREAMzs
+SPECS: DREAMzs, iter=1500k, chains=3
+-Messy mixing and not fully converging. As usual for DREAMzs.
+
+Run #152: Repeat #147 with AM
+SPECS: AM, iter=1500k, chains=3
+-No convergence, as expected, chains get stuck to local optima
+
+--Found a bug in Mäkinen data, initial values were ordered incorrectly
+
+Run #153: Repeat run #154 with AM
+SPECS: AM, iter=1500k, chains=3
+-Results are similar to #152, as expected
+-Ordering got messed up here, run #154 should have been before run #153
+
+Run #154: Global calibration with fixed Mäkinen data.
+SPECS: DEzs, iter=1500k, chains=3
+-Results converge and are very similar to #147 (global with bugged Mäkinen).
+-Suggests that the bug in Mäkinen data had minor influence on the results.
+
+Run #155: Repeat run #154 with DREAMzs
+SPECS: DREAMzs, iter=1500k, chains=3
+-Results are similar to #151, as expected
+
+Run #156: Global calibration with the added Hob3 dataset.
+SPECS: DEzs, iter=1500k, chains=3
+-The calibrated leaching parameter for Hob3 was chosen to be w3.
+-Results are similar to #154
+-Suggests that adding Hob3 does not significantly impact the calibration
+
+Run #157: Repeat #154 with sequential logic
+SPECS: DEzs, iter=1500k, chains=3
+-Results similar to #154, as expected
+-Sequential logic seems functional
+
+Run #158: Repeat #155 with sequential logic
+SPECS: DREAMzs, iter=1500k, chains=3
+-Results similar to #155, as expected
+-Sequential logic seems functional
+
