@@ -22,13 +22,14 @@ run_name <- paste0("run-", seed)
 # Full path to the project directory
 # path_main_dir <- "" # local, with project file
 #path_main_dir <- "~/YASSO-calibration-master/" # server
-path_main_dir <- "/eos/jeodpp/data/projects/SOIL-NACA/MEMS/Calibration/" # server
+path_main_dir <- "/BGFS/AGRI4CLIMATE/viskato/MEMS_Calibration" # server
 
 
 ## MCMC settings
 
 # Datasets used for calibration
-datasets <- c("LUCAS")
+#datasets <- c("LUCAS_PM","LUCAS_tot")
+datasets <- c("LUCAS_PM")
 
 # Calibrated parameters (correspond to rows in default_par, e.g. 1 = aA, 2 = aW)
 #par_chosen <- c(1:5, 9, 15, 17:18, 21:35)
@@ -39,7 +40,7 @@ sampler_name <- "DEzs"
 
 # Iterations and chains for calibration, burn-in for postprocessing
 # n_iter <- 1.5e6
-n_iter <- 1.5e2
+n_iter <- 1.5e1
 n_chains <- 3
 burn_in <- 0.9 * n_iter
 
@@ -54,8 +55,9 @@ datatype <- "full"
 # highly recommended, since it saves a considerable amount of time and works
 # even on low-end systems. Sequential runs should only be done in the rare
 # cases, where the system does not support parallelization.
-# parallel <- TRUE
-parallel <- FALSE
+#parallel <- FALSE
+parallel <- TRUE
+
 
 
 ## Post-processing the results: statistics
@@ -69,7 +71,7 @@ do_stats <- TRUE
 # Required packages: tidyverse, GGally
 
 # Plot results. If TRUE, results will be plotted to "results/<run-name>".
-plot_results <- TRUE
+plot_results <- FALSE
 
 # Plot individual chains. If TRUE, creates correlation, trace and density plots
 # for each chain to "results/<run-name>/<chain>".
@@ -96,7 +98,9 @@ path_results_run <- paste0(path_main_dir, "results/", run_name)
 # MCMC algorithms
  library(BayesianTools)
 # MEMS model wrapper
-source(paste0(path_main_dir,"Model/mems_calibration/calibration_MEMS.R"))
+source(paste0(path_main_dir,"Model/mems_calibration/MEMS_calibration.R"))
+dyn.load(paste0(path_main_dir,"Model/mems_calibration/MEMS_calibration.dll"))
+
 
 # Parallelization
 library(parallel)
@@ -158,8 +162,8 @@ inits <- as.matrix(read.csv(
 inits <- inits[, default_par$name[par_chosen]]
 
 # Loading data for the MEMS to use
-dirSL<-("/eos/jeodpp/data/projects/SOIL-NACA/MODEL/SptLYR/")
-lat_long<-as.array(stack(paste0(dirSL,"lat_long.tif")))/100
+# dirSL<-("/eos/jeodpp/data/projects/SOIL-NACA/MODEL/SptLYR/")
+# lat_long<-as.array(stack(paste0(dirSL,"lat_long.tif")))/100
 
 
 # -------------------------------------------------------------------------
